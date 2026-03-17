@@ -1,0 +1,21 @@
+# /docker-compose.yml
+version: '3.8'
+
+services:
+  data-copilot-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: copilot-main-server
+    ports:
+      - "8501:8501"
+    environment:
+      # 从宿主机的 .env 文件透传 API Key
+      - OPENAI_API_KEY=${OPENAI_API_KEY} 
+    volumes:
+      #将物理机的 Docker 引擎通讯接口挂载进容器
+      # 这样 Agent 在容器内调用 docker SDK 时，实际上是在操控宿主机的 Docker！
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 将测试数据持久化挂载，防止容器重启丢失数据
+      - ./data:/app/data
+    restart: unless-stopped
