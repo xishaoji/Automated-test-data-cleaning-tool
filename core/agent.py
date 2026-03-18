@@ -1,6 +1,6 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, AIMessage
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from core.state import DataCopilotState
@@ -11,7 +11,7 @@ from tools.python_sandbox_tool import execute_python_code
 from tools.protocol_parser import parse_communication_protocol 
 
 class LangGraphDataAgent:
-    def __init__(self, model_name="gpt-4o"):
+    def __init__(self, model_name="deepseek-chat"):
         self.llm = ChatOpenAI(model=model_name, temperature=0)
         
         # 💡 【关键修正】：将沙盒执行器和协议解析器同时赋予大模型
@@ -87,7 +87,7 @@ class LangGraphDataAgent:
         workflow.add_node("tools", tool_node)
         
         # 3. 编排边 (Edges) 与路由
-        workflow.set_entry_point("reasoner")
+        workflow.add_edge(START, "reasoner")
         
         # 如果 reasoner 输出了工具调用 -> 去 tools 节点；否则 -> 结束
         workflow.add_conditional_edges(
