@@ -18,22 +18,20 @@ Markdown
 
 ```text
 agentic-test-log-copilot/
-├── app.py                    # 表现层：Streamlit 异步流式交互前端
-├── core/                     # 逻辑层：Agent 大脑
+├── app.py                    # 主程序入口
+├── core/                     # 核心逻辑
 │   ├── state.py              # 图状态定义 (TypedDict & InjectedState)
 │   ├── agent.py              # LangGraph 节点编排与路由
-│   └── prompts.py            # 核心系统提示词配置
+│   └── prompts.py            
 ├── tools/                    # 扩展层：自定义工具集
 │   ├── python_sandbox_tool.py# 封装 Docker 代码执行工具
 │   └── protocol_parser.py    # 底层通信协议 16 进制解析器
 ├── sandbox/                  # 安全层：沙盒执行环境
-│   ├── Dockerfile            # 轻量级 Python 执行镜像配置
-│   └── container_manager.py  # Python SDK 操控 Docker 引擎的胶水层
-├── utils/                    # 基础设施
-│   ├── logger.py             # 企业级日志记录器 (Traceability)
-│   └── data_profiler.py      # 测试日志全量数据体检模块
-├── scripts/                  # 辅助工具
-│   └── generate_mock_data.py # 充电桩通信报文 Mock 生成器
+│   ├── Dockerfile            # 沙盒 Python 执行镜像配置
+│   └── container_manager.py  
+├── utils/                    
+│   ├── logger.py             # 日志记录
+│   └── data_profiler.py      # 测试日志全量数据
 ├── data/                     # 数据挂载层 (与前端、容器共享)
 ├── docker-compose.yml        # DooD (Docker-out-of-Docker) 编排文件
 ├── Dockerfile                # 主应用 Web 服务镜像
