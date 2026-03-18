@@ -1,0 +1,3 @@
+OPENAI_API_KEY="sk-5398d95b3de14688b73ef63b08c21089"
+OPENAI_BASE_URL="https://api.deepseek.com/v1"
+TAVILY_API_KEY="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"
