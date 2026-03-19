@@ -113,7 +113,7 @@ if st.session_state.df is not None:
     with st.expander("🔎 实时数据预览 (前 10 行)", expanded=True):
         # 每次交互后重新从磁盘读取最新状态，确保 UI 和沙盒数据同步
         current_df = pd.read_csv(st.session_state.csv_file_path)
-        st.dataframe(current_df.head(10), use_container_width=True)
+        st.dataframe(current_df.head(10))
 
     st.divider()
 
