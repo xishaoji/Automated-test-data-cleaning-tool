@@ -43,13 +43,12 @@ agentic-test-log-copilot/
 
 2. 克隆与配置
 ```Bash
-git clone [https://github.com/yourusername/agentic-test-log-copilot.git](https://github.com/yourusername/agentic-test-log-copilot.git)
-cd agentic-test-log-copilot
+git clone https://github.com/xishaoji/Automated-test-data-cleaning-tool.git
+cd Automated-test-data-cleaning-tool
 ```
+配置环境变量
+.env 中大模型秘钥 (如 OPENAI_API_KEY=sk-...)
 
-# 配置环境变量
-cp .env.example .env
-# 在 .env 中填入你的大模型秘钥 (如 OPENAI_API_KEY=sk-...)
 3. 构建底层安全沙盒镜像
 （首次运行必须）构建供大模型执行生成代码的隔离环境：
 
@@ -57,7 +56,7 @@ cp .env.example .env
 docker build -t pandas-sandbox:latest -f sandbox/Dockerfile .
 ```
 4. 启动服务 (双重选择)
-方式 A：容器化一键部署（推荐，支持完整物理隔离）
+方式 A：容器化一键部署
 
 ```Bash
 docker-compose up -d
@@ -67,8 +66,8 @@ docker-compose up -d
 方式 B：本地开发调试模式
 
 ```Bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app.py
 ```

@@ -14,7 +14,7 @@ class LangGraphDataAgent:
     def __init__(self, model_name="deepseek-chat"):
         self.llm = ChatOpenAI(model=model_name, temperature=0)
         
-        # 💡 【关键修正】：将沙盒执行器和协议解析器同时赋予大模型
+        # 沙盒执行器和协议解析器同时作为工具注册到 Agent 中，供模型调用
         self.tools = [execute_python_code, parse_communication_protocol]
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
