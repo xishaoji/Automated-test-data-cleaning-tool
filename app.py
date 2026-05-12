@@ -3,12 +3,14 @@ import pandas as pd
 import os
 import asyncio
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
 
 # 加载环境变量
 load_dotenv()
 
 # 引入我们重构后的 LangGraph 核心大脑和数据体检工具
 from core.agent import LangGraphDataAgent
+from core.state import DataCopilotState
 from utils.data_profiler import generate_profiling_report
 
 # --- 1. 页面与全局状态配置 ---
@@ -80,8 +82,9 @@ async def process_user_query(user_query: str):
     workflow_app = agent_core.build_graph()
     
     # 构建输入给图的初始状态
-    initial_state = {
-        "messages": [{"role": "user", "content": user_query}],
+    initial_state: DataCopilotState = {
+        # "messages": [{"role": "user", "content": user_query}],
+        "messages": [HumanMessage(content=user_query)],  # 直接使用 LangChain 的消息格式，保持工具调用的兼容性
         "dataset_schema": st.session_state.dataset_schema,
         "csv_file_path": st.session_state.csv_file_path
     }
@@ -92,7 +95,7 @@ async def process_user_query(user_query: str):
     # 捕获 LangGraph 流转状态，展示极客感十足的思考过程
     with status_container.container():
         with st.status("🧠 Agent 正在分析日志与编写脚本...", expanded=True) as status:
-            async for event in workflow_app.astream(initial_state, stream_mode="values"):
+            async for event in workflow_app.astream(initial_state, stream_mode="values"): # TODO: 这里有个报错，需要分析
                 if "messages" in event:
                     last_msg = event["messages"][-1]
                     # 如果 Agent 决定调用执行 Python 的工具
