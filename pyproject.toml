@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-test-log-copilot"
+version = "0.2.0"
+description = "LangGraph-based agent that cleans and analyzes device protocol test logs inside a hardened Docker sandbox."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "xishaoji" }]
+
+[tool.setuptools]
+packages = ["core", "tools", "sandbox", "utils"]
+
+# ---------------------------------------------------------------------------
+# Ruff: single tool for linting + import sorting, fast and zero-config heavy.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["data", "logs", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "C4",  # comprehensions
+]
+ignore = [
+    "E501",  # long lines handled by formatter
+    "B008",  # function-calls-in-defaults (common for Depends/Field)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+line-ending = "lf"
+
+# ---------------------------------------------------------------------------
+# Mypy: start permissive then tighten module by module.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = ["data/", "logs/", ".venv/"]
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "docker: tests that require a live Docker daemon",
+    "integration: integration tests that hit external services",
+]

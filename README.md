@@ -1,72 +1,134 @@
-Markdown
-# 测试日志分析平台
+# Agentic Test-Log Copilot
 
-本项目是一个基于 **LangGraph** 构建的生产级数据清洗与分析 Agent 框架，专为解决工业设备（如充电桩）底层通信协议测试、整机日志排查而设计。
-使用 **Docker 沙盒物理隔离**技术，可安全的执行模型生成的代码，替代传统测试工程师排查丢包、时序异常与报文解析的工作模式。
+> LangGraph-based AI agent that cleans and analyzes industrial device test logs inside a **hardened Docker sandbox**.
 
-## ✨ 核心特性 (Key Features)
+[![CI](https://github.com/xishaoji/Automated-test-data-cleaning-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/xishaoji/Automated-test-data-cleaning-tool/actions)
 
-* **🧠 状态机驱动的智能体大脑**：基于 LangGraph 重构逻辑链路，支持动态工具路由、错误捕获与自主修复。
-* **🛡️ Docker 沙盒级代码执行**：LLM 生成的 Pandas 清洗代码将在无外网、受限资源的临时容器中隔离执行，保障宿主机与核心业务数据的绝对安全。
-* **🔌 深度协议解析双核引擎**：
-  * **协议解包器**：内置定制化 16 进制通信报文（Hex Payload）解析工具。
-  * **代码沙盒**：大模型可自主实现“先解析底层指令 -> 再生成批处理代码”的复杂跨步骤推理。
-* **🚨 柔性熔断与人工介入 (Human-in-the-loop)**：内置无限循环保护机制，当 Agent 连续 3 次执行代码失败时，自动熔断并向前端请求人类专家援助。
+## Highlights
 
-## 🏗️ 系统架构 (Architecture)
+| Feature | Description |
+|---------|-------------|
+| **State-machine agent** | LangGraph workflow with dynamic tool routing, circuit-breaker, and human-in-the-loop escalation |
+| **Hardened sandbox** | LLM-generated Pandas code runs in a network-disabled, read-only, resource-limited Docker container |
+| **Protocol decoder** | Built-in hex payload parser for heartbeat / charge / alarm frames |
+| **Structured config** | `pydantic-settings` driven — every knob is an env var with validation and defaults |
+| **Observability** | Rotating file + JSON structured logging; per-request trace via named loggers |
+| **CI-ready** | Ruff lint + format, mypy, pytest with coverage, GitHub Actions pipeline |
+
+## Architecture
 
 ```text
-agentic-test-log-copilot/
-├── app.py                    # 主程序入口
-├── core/                     # 核心逻辑
-│   ├── state.py              # 图状态定义 (TypedDict & InjectedState)
-│   ├── agent.py              # LangGraph 节点编排与路由
-│   └── prompts.py            
-├── tools/                    # 扩展层：自定义工具集
-│   ├── python_sandbox_tool.py# 封装 Docker 代码执行工具
-│   └── protocol_parser.py    # 底层通信协议 16 进制解析器
-├── sandbox/                  # 安全层：沙盒执行环境
-│   ├── Dockerfile            # 沙盒 Python 执行镜像配置
-│   └── container_manager.py  
-├── utils/                    
-│   ├── logger.py             # 日志记录
-│   └── data_profiler.py      # 测试日志全量数据
-├── data/                     # 数据挂载层 (与前端、容器共享)
-├── docker-compose.yml        # DooD (Docker-out-of-Docker) 编排文件
-├── Dockerfile                # 主应用 Web 服务镜像
-└── requirements.txt
+┌─────────────────────────────────────────────────────────────────┐
+│  Streamlit UI (app.py)                                          │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  LangGraph Workflow (core/agent.py)                       │   │
+│  │  ┌──────────┐    ┌──────────────────────────────────┐    │   │
+│  │  │ Reasoner │◄──►│ ToolNode                          │    │   │
+│  │  │  (LLM)   │    │  • execute_python_code            │    │   │
+│  │  │          │    │  • parse_communication_protocol   │    │   │
+│  │  └──────────┘    └──────────────────────────────────┘    │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Docker Sandbox (sandbox/container_manager.py)            │   │
+│  │  • network_disabled  • read_only rootfs  • cap_drop ALL  │   │
+│  │  • mem/cpu/pid limits  • wall-clock timeout              │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
 ```
-## 🚀 快速启动 (Getting Started)
-1. 环境准备
-确保你的计算机或服务器已安装 Python 3.10+ 与 Docker Desktop。
 
-2. 克隆与配置
-```Bash
+## Quick Start
+
+### Prerequisites
+
+- Python 3.10+
+- Docker Desktop (for sandbox execution)
+
+### 1. Clone & configure
+
+```bash
 git clone https://github.com/xishaoji/Automated-test-data-cleaning-tool.git
 cd Automated-test-data-cleaning-tool
+cp .env.example .env
+# Edit .env — fill in your OPENAI_API_KEY (supports DeepSeek / Qwen / any OpenAI-compatible endpoint)
 ```
-配置环境变量
-.env 中大模型秘钥 (如 OPENAI_API_KEY=sk-...)
 
-3. 构建底层安全沙盒镜像
-（首次运行必须）构建供大模型执行生成代码的隔离环境：
+### 2. Build the sandbox image (first time only)
 
-```Bash
-docker build -t pandas-sandbox:latest -f sandbox/Dockerfile .
+```bash
+docker build -t pandas-sandbox:latest -f sandbox/Dockerfile ./sandbox
 ```
-4. 启动服务 (双重选择)
-方式 A：容器化一键部署
 
-```Bash
-docker-compose up -d
-```
-访问 http://localhost:8501 即可打开前端。
+### 3a. Run locally (dev mode)
 
-方式 B：本地开发调试模式
-
-```Bash
+```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
+# Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+### 3b. Run with Docker Compose (production-like)
+
+```bash
+docker compose up -d
+# Open http://localhost:8501
+```
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+
+# Lint & format
+ruff check . --fix
+ruff format .
+
+# Type check
+mypy core tools utils
+
+# Tests (skip Docker-dependent tests without a daemon)
+pytest -m "not docker"
+```
+
+## Project Structure
+
+```
+├── app.py                     # Streamlit entry point
+├── core/
+│   ├── config.py              # pydantic-settings configuration
+│   ├── agent.py               # LangGraph node orchestration
+│   ├── prompts.py             # System prompt templates
+│   ├── state.py               # TypedDict graph state
+│   └── exceptions.py          # Domain exception hierarchy
+├── tools/
+│   ├── python_sandbox_tool.py # @tool wrapper for sandbox execution
+│   └── protocol_parser.py     # Hex protocol decoder tool
+├── sandbox/
+│   ├── container_manager.py   # Hardened Docker sandbox driver
+│   ├── Dockerfile             # Minimal pandas execution image
+│   └── requirements.txt       # Sandbox-only deps
+├── utils/
+│   ├── logger.py              # Structured logging setup
+│   └── data_profiler.py       # Data health report generator
+├── tests/                     # pytest suite
+├── .github/workflows/ci.yml   # GitHub Actions CI
+├── docker-compose.yml         # DooD orchestration
+├── Dockerfile                 # Main app image
+├── pyproject.toml             # Build, ruff, mypy, pytest config
+├── requirements.txt           # Production deps
+├── requirements-dev.txt       # Dev/test deps
+└── .env.example               # Template for secrets
+```
+
+## Security Considerations
+
+- **Docker socket**: Mounting `/var/run/docker.sock` grants the web container host-level Docker access. In production, use a [Docker socket proxy](https://github.com/Tecnativa/docker-socket-proxy) to restrict API calls.
+- **Sandbox hardening**: Containers run with `network_disabled`, `read_only` rootfs, `cap_drop=ALL`, `no-new-privileges`, and strict resource limits.
+- **Secrets**: Never commit `.env`. The `.env.example` file contains only placeholder values.
+
+## License
+
+MIT
