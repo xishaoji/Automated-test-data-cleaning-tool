@@ -1,36 +1,62 @@
+"""LangGraph tool that runs Pandas code in a hardened Docker sandbox."""
+
+from __future__ import annotations
+
 from typing import Annotated
+
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
-from sandbox.container_manager import DockerSandbox
 
-# 初始化 Docker 沙盒管理器
-sandbox_env = DockerSandbox()
+from core.exceptions import (
+    SandboxExecutionError,
+    SandboxTimeoutError,
+    SandboxUnavailableError,
+)
+from sandbox.container_manager import DockerSandbox
+from utils.logger import get_logger
+
+logger = get_logger("tool.sandbox")
+
+# Single sandbox manager per process; the Docker client is cheap to reuse.
+_sandbox = DockerSandbox()
+
 
 @tool("execute_python_code")
 def execute_python_code(
-    code: str, 
-    state: Annotated[dict, InjectedState]  # 传入资料目录，大模型看不见这个参数！
+    code: str,
+    state: Annotated[dict, InjectedState],
 ) -> str:
+    """Run Pandas code against the current session's CSV in an isolated Docker sandbox.
+
+    Contract for the calling LLM:
+      * A ``df`` (pandas.DataFrame) is preloaded from the user-uploaded CSV.
+      * Do not call ``pd.read_csv`` / ``df.to_csv``; persistence is automatic.
+      * Use ``print(...)`` to surface diagnostics back to the reasoning loop.
+      * Any exception raised by your code is captured and returned as stderr.
     """
-    当需要对测试日志进行清洗、计算、提取时，调用此工具执行 Python (Pandas) 代码。
-    
-    【💡 极其重要的沙盒编码规范】：
-    1. 你【不需要】且【绝对不能】写代码去读取或保存 CSV 文件！严禁使用 pd.read_csv() 或 df.to_csv()。
-    2. 全局变量 `df` (Pandas DataFrame) 已经在上下文中为你加载完毕。
-    3. 你只需要直接编写对 `df` 进行逻辑处理的代码即可。
-    4. 如果你想让我看到结果，请使用 `print()`。
-    """
+
+    csv_path = state.get("csv_file_path")
+    if not csv_path:
+        return "[system] No csv_file_path in state; please upload a CSV first."
+
+    logger.info("invoking sandbox", extra={"csv_path": csv_path, "code_len": len(code)})
     try:
-        # 从State 中，安全提取物理路径
-        csv_path = state.get("csv_file_path")
-        
-        if not csv_path:
-            return "系统错误：未能在上下文中找到当前文件路径。"
-            
-        print(f"🛠️ [Sandbox] 正在执行代码，目标映射文件: {csv_path} ...")
-        
-        # 传给底层的 Docker 胶水代码
-        result = sandbox_env.run_code_in_sandbox(code, csv_path)
-        return result
-    except Exception as e:
-        return f"Docker 沙盒执行发生系统级异常: {str(e)}"
+        result = _sandbox.run(code, csv_path)
+    except SandboxUnavailableError as exc:
+        logger.error("sandbox unavailable: %s", exc)
+        return f"[sandbox-unavailable] {exc}"
+    except SandboxTimeoutError as exc:
+        logger.warning("sandbox timeout")
+        return f"[sandbox-timeout] {exc}"
+    except SandboxExecutionError as exc:
+        logger.info("sandbox user-code error")
+        # Re-use the structured formatter so the LLM sees stdout + stderr distinctly.
+        stdout = (exc.stdout or "").strip()
+        stderr = (exc.stderr or "").strip()
+        return (
+            f"[sandbox-error] {exc}\n"
+            + (f"[stdout]\n{stdout}\n" if stdout else "")
+            + (f"[stderr]\n{stderr}" if stderr else "")
+        )
+
+    return result.format_for_llm()

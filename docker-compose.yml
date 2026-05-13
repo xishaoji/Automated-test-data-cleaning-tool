@@ -1,0 +1,34 @@
+# docker-compose.yml
+# DooD (Docker-out-of-Docker) architecture: the main web container controls
+# the host Docker daemon to spawn ephemeral sandbox containers.
+#
+# ⚠️ Security note: mounting docker.sock grants the web container root-equivalent
+# access to the host. In production, consider using a Docker socket proxy
+# (e.g. Tecnativa/docker-socket-proxy) to restrict API calls.
+
+services:
+  copilot-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: copilot-main-server
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    group_add:
+      # Linux hosts: set DOCKER_GID to `stat -c '%g' /var/run/docker.sock`.
+      - "${DOCKER_GID:-0}"
+    volumes:
+      # Docker socket for DooD sandbox spawning
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistent uploaded/processed datasets for the Streamlit app.
+      # Sandboxes receive files through the Docker archive API, not this mount.
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

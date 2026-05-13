@@ -138,6 +138,10 @@ celerybeat.pid
 .env
 .envrc
 .venv
+
+# Application runtime artifacts
+logs/
+data/session_*.csv
 env/
 venv/
 ENV/
