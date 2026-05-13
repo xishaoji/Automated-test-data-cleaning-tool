@@ -52,6 +52,7 @@ git clone https://github.com/xishaoji/Automated-test-data-cleaning-tool.git
 cd Automated-test-data-cleaning-tool
 cp .env.example .env
 # Edit .env — fill in your OPENAI_API_KEY (supports DeepSeek / Qwen / any OpenAI-compatible endpoint)
+# Linux + docker compose: set DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
 ```
 
 ### 2. Build the sandbox image (first time only)
@@ -126,6 +127,7 @@ pytest -m "not docker"
 ## Security Considerations
 
 - **Docker socket**: Mounting `/var/run/docker.sock` grants the web container host-level Docker access. In production, use a [Docker socket proxy](https://github.com/Tecnativa/docker-socket-proxy) to restrict API calls.
+- **DooD file transfer**: The web app copies the script and CSV into each sandbox through Docker's archive API, then copies the result CSV back. This avoids binding web-container temp paths that the host Docker daemon cannot see.
 - **Sandbox hardening**: Containers run with `network_disabled`, `read_only` rootfs, `cap_drop=ALL`, `no-new-privileges`, and strict resource limits.
 - **Secrets**: Never commit `.env`. The `.env.example` file contains only placeholder values.
 

@@ -13,6 +13,7 @@ import streamlit as st
 from core.agent import LangGraphDataAgent
 from core.config import get_settings
 from utils.data_profiler import generate_profiling_report
+from utils.data_session import build_dataset_schema, file_digest
 from utils.logger import get_logger
 
 logger = get_logger("ui")
@@ -34,6 +35,7 @@ _DEFAULTS = {
     "dataset_schema": "",
     "csv_file_path": "",
     "session_id": uuid.uuid4().hex[:8],
+    "uploaded_file_digest": "",
     "agent_graph": None,
 }
 for key, default in _DEFAULTS.items():
@@ -51,6 +53,18 @@ def _get_graph():
 def _session_csv_path() -> Path:
     # Per-session file avoids concurrent users stomping on each other.
     return DATA_DIR / f"session_{st.session_state.session_id}.csv"
+
+
+def _load_current_dataset() -> pd.DataFrame:
+    df = pd.read_csv(st.session_state.csv_file_path)
+    st.session_state.df = df
+    st.session_state.dataset_schema = build_dataset_schema(df)
+    return df
+
+
+def _current_csv_bytes() -> bytes:
+    csv_path = Path(st.session_state.csv_file_path)
+    return csv_path.read_bytes() if csv_path.is_file() else b""
 
 
 # ---------------------------------------------------------------------------
@@ -76,29 +90,36 @@ with st.sidebar:
         else:
             try:
                 raw_bytes = uploaded_file.getvalue()
-                if uploaded_file.name.lower().endswith(".csv"):
-                    df = pd.read_csv(io.BytesIO(raw_bytes))
+                digest = file_digest(raw_bytes)
+
+                if digest != st.session_state.uploaded_file_digest:
+                    if uploaded_file.name.lower().endswith(".csv"):
+                        df = pd.read_csv(io.BytesIO(raw_bytes))
+                    else:
+                        df = pd.read_excel(io.BytesIO(raw_bytes))
+
+                    csv_path = _session_csv_path()
+                    df.to_csv(csv_path, index=False)
+
+                    st.session_state.df = df
+                    st.session_state.csv_file_path = str(csv_path)
+                    st.session_state.dataset_schema = build_dataset_schema(df)
+                    st.session_state.uploaded_file_digest = digest
+                    st.session_state.messages = []
+                elif st.session_state.csv_file_path:
+                    df = _load_current_dataset()
                 else:
-                    df = pd.read_excel(io.BytesIO(raw_bytes))
+                    df = st.session_state.df
 
-                csv_path = _session_csv_path()
-                df.to_csv(csv_path, index=False)
-
-                st.session_state.df = df
-                st.session_state.csv_file_path = str(csv_path)
-                st.session_state.dataset_schema = (
-                    f"字段类型:\n{df.dtypes.to_string()}\n\n"
-                    f"前三行数据预览:\n{df.head(3).to_markdown(index=False)}"
-                )
-
-                st.success("✅ 日志已加载并挂载到沙盒目录")
-                st.markdown(generate_profiling_report(df))
-                st.download_button(
-                    "📥 导出当前最新数据集",
-                    data=csv_path.read_bytes(),
-                    file_name="processed_test_log.csv",
-                    mime="text/csv",
-                )
+                if df is not None and st.session_state.csv_file_path:
+                    st.success("✅ 日志已加载并挂载到沙盒目录")
+                    st.markdown(generate_profiling_report(df))
+                    st.download_button(
+                        "📥 导出当前最新数据集",
+                        data=_current_csv_bytes(),
+                        file_name="processed_test_log.csv",
+                        mime="text/csv",
+                    )
             except Exception as exc:  # noqa: BLE001 — surface any parse issue to the UI
                 logger.exception("failed to parse uploaded file")
                 st.error(f"解析文件失败: {exc}")
@@ -111,8 +132,11 @@ with st.sidebar:
 
 async def _process_user_query(user_query: str) -> str:
     graph = _get_graph()
+    messages = list(st.session_state.messages)
+    if not messages or messages[-1].get("content") != user_query:
+        messages.append({"role": "user", "content": user_query})
     initial_state = {
-        "messages": [{"role": "user", "content": user_query}],
+        "messages": messages,
         "dataset_schema": st.session_state.dataset_schema,
         "csv_file_path": st.session_state.csv_file_path,
     }
@@ -140,7 +164,7 @@ async def _process_user_query(user_query: str) -> str:
 
 if st.session_state.df is not None:
     with st.expander("🔎 实时数据预览 (前 10 行)", expanded=True):
-        current_df = pd.read_csv(st.session_state.csv_file_path)
+        current_df = _load_current_dataset()
         st.dataframe(current_df.head(10), width="stretch")
 
     st.divider()
@@ -162,6 +186,7 @@ if st.session_state.df is not None:
             try:
                 answer = asyncio.run(_process_user_query(prompt))
                 answer = answer or "未能从模型取得最终结论，请查看日志或重试。"
+                _load_current_dataset()
                 st.markdown(answer)
                 st.session_state.messages.append({"role": "assistant", "content": answer})
                 st.rerun()

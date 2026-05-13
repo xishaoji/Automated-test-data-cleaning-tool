@@ -16,10 +16,14 @@ services:
       - "8501:8501"
     env_file:
       - .env
+    group_add:
+      # Linux hosts: set DOCKER_GID to `stat -c '%g' /var/run/docker.sock`.
+      - "${DOCKER_GID:-0}"
     volumes:
       # Docker socket for DooD sandbox spawning
       - /var/run/docker.sock:/var/run/docker.sock
-      # Persistent data volume shared with sandbox containers
+      # Persistent uploaded/processed datasets for the Streamlit app.
+      # Sandboxes receive files through the Docker archive API, not this mount.
       - ./data:/app/data
     restart: unless-stopped
     healthcheck:
