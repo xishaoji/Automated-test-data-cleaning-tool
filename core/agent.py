@@ -76,7 +76,9 @@ class LangGraphDataAgent:
         messages: list[BaseMessage] = list(state["messages"])
 
         if consecutive_tool_errors(messages) >= self._settings.max_error_retries:
-            logger.warning("circuit breaker tripped after %s errors", self._settings.max_error_retries)
+            logger.warning(
+                "circuit breaker tripped after %s errors", self._settings.max_error_retries
+            )
             sos = AIMessage(
                 content=(
                     "⚠️ **执行熔断**：沙盒代码连续失败，已停止自动重试。"

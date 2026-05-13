@@ -209,7 +209,9 @@ class DockerSandbox:
                 "Build it with `docker build -t pandas-sandbox:latest -f sandbox/Dockerfile ./sandbox`"
             ) from exc
         except (APIError, ContainerError) as exc:
-            raise SandboxUnavailableError(f"Docker API error while starting sandbox: {exc}") from exc
+            raise SandboxUnavailableError(
+                f"Docker API error while starting sandbox: {exc}"
+            ) from exc
 
         start = time.monotonic()
         timeout = self._settings.sandbox_timeout_seconds
@@ -257,7 +259,9 @@ class DockerSandbox:
             stdout = (stdout_bytes or b"").decode("utf-8", errors="replace")
             stderr = (stderr_bytes or b"").decode("utf-8", errors="replace")
 
-            with contextlib.suppress(NotFound, APIError, DockerException, tarfile.TarError, OSError):
+            with contextlib.suppress(
+                NotFound, APIError, DockerException, tarfile.TarError, OSError
+            ):
                 self._copy_file_from_container(
                     container, "/data/input.csv", workdir / "data" / "input.csv"
                 )
@@ -268,7 +272,9 @@ class DockerSandbox:
         except Exception as exc:  # noqa: BLE001 - docker-py surfaces many error types here
             with contextlib.suppress(NotFound, APIError):
                 container.kill()
-            raise SandboxUnavailableError(f"Docker API error while preparing sandbox: {exc}") from exc
+            raise SandboxUnavailableError(
+                f"Docker API error while preparing sandbox: {exc}"
+            ) from exc
         finally:
             with contextlib.suppress(NotFound, APIError):
                 container.remove(force=True)

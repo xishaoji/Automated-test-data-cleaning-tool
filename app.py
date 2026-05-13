@@ -73,20 +73,14 @@ def _current_csv_bytes() -> bytes:
 
 with st.sidebar:
     st.header("📁 测试日志管理")
-    st.caption(
-        f"支持 CSV / Excel，单文件上限 {settings.max_upload_mb} MB。"
-    )
+    st.caption(f"支持 CSV / Excel，单文件上限 {settings.max_upload_mb} MB。")
 
-    uploaded_file = st.file_uploader(
-        "上传整机/通信测试记录", type=["csv", "xlsx"], key="uploader"
-    )
+    uploaded_file = st.file_uploader("上传整机/通信测试记录", type=["csv", "xlsx"], key="uploader")
 
     if uploaded_file is not None:
         size_mb = uploaded_file.size / (1024 * 1024)
         if size_mb > settings.max_upload_mb:
-            st.error(
-                f"文件过大 ({size_mb:.1f} MB)，当前上限为 {settings.max_upload_mb} MB。"
-            )
+            st.error(f"文件过大 ({size_mb:.1f} MB)，当前上限为 {settings.max_upload_mb} MB。")
         else:
             try:
                 raw_bytes = uploaded_file.getvalue()
@@ -173,9 +167,7 @@ if st.session_state.df is not None:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    st.caption(
-        "💡 示例指令: '提取心跳包丢包率超过 5% 的设备ID，生成清单并给出丢包时间分布。'"
-    )
+    st.caption("💡 示例指令: '提取心跳包丢包率超过 5% 的设备ID，生成清单并给出丢包时间分布。'")
 
     if prompt := st.chat_input("输入针对该批次测试数据的分析或清洗指令..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
